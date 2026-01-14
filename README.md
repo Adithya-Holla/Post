@@ -1,109 +1,127 @@
-# Post - MERN Micro-blogging Application
+# Post
 
-A full-stack micro-blogging application built with the MERN stack (MongoDB, Express, React, Node.js).
+A full‑stack micro‑blogging application built with MongoDB, Express, React (Vite), and Node.js.
+
+The backend exposes a REST API (cookie-based JWT auth) and emits basic Socket.IO events for post interactions.
 
 ## Features
 
-- **Public Viewing**: Anyone can view posts without authentication
-- **Protected Interactions**: Authentication required to create posts, like, and comment
-- **Real-time Updates**: WebSocket integration for live post updates
-- **JWT Authentication**: Secure authentication using httpOnly cookies
-- **Scalable Architecture**: Clean separation of concerns with MVC pattern
+- Authentication with JWT stored in an HttpOnly cookie
+- Create, edit, and delete posts (280 character limit)
+- Like/unlike posts
+- Comment on posts and fetch comments per post
+- Profile avatar upload (served from `/uploads`)
+- Socket.IO events for interaction updates (like/comment)
 
 ## Tech Stack
 
-### Backend
-- **Node.js** & **Express** - Server framework
-- **MongoDB** - Database
-- **JWT** - Authentication (httpOnly cookies)
-- **Socket.IO** - Real-time features
+- Backend: Node.js, Express, MongoDB (Mongoose), JWT, Socket.IO, Multer
+- Frontend: React, Vite, React Router, Axios, Tailwind CSS
 
-### Frontend
-- **React** (Vite) - UI library
-- **React Router** - Client-side routing
-- **Axios** - HTTP client
-- **Tailwind CSS** - Styling
-- **Socket.IO Client** - Real-time updates
-
-## Project Structure
+## Repository Layout
 
 ```
 Post/
-├── backend/          # Node.js + Express backend
-│   └── src/
-│       ├── config/   # Database and environment configuration
-│       ├── models/   # MongoDB schemas
-│       ├── routes/   # API route definitions
-│       ├── controllers/ # Business logic
-│       ├── middleware/  # Custom middleware
-│       ├── sockets/  # WebSocket handlers
-│       └── utils/    # Helper functions
-│
-├── frontend/         # React + Vite frontend
-│   └── src/
-│       ├── api/      # API configuration
-│       ├── components/ # React components
-│       ├── context/  # State management
-│       ├── pages/    # Page components
-│       ├── sockets/  # Socket.IO client
-│       └── styles/   # Global styles
-│
-└── README.md
+  backend/           # Express API + MongoDB + Socket.IO
+  frontend/          # React (Vite) client
+  README.md
 ```
 
-## Getting Started
+## Local Development
 
 ### Prerequisites
-- Node.js (v18+)
-- MongoDB (v6+)
-- npm or yarn
 
-### Installation
+- Node.js 18+
+- MongoDB (local or Atlas)
 
-**Backend:**
-```bash
-cd backend
-npm install
-cp .env.example .env
-# Edit .env with your configuration
-npm run dev
-```
+### Backend
 
-**Frontend:**
-```bash
-cd frontend
-npm install
-npm run dev
-```
+1. Install dependencies:
 
-## API Endpoints
+	```bash
+	cd backend
+	npm install
+	```
 
-### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login user
-- `POST /api/auth/logout` - Logout user
-- `GET /api/auth/me` - Get current user
+2. Create `backend/.env`:
+
+	```env
+	PORT=4000
+	NODE_ENV=development
+	MONGODB_URI=mongodb://localhost:27017/post-app
+	JWT_SECRET=change-me
+	JWT_EXPIRE=7d
+	COOKIE_SECURE=false
+	CLIENT_URL=http://localhost:5173
+	```
+
+3. Start the API server:
+
+	```bash
+	npm run dev
+	```
+
+The health check is available at `GET /health`.
+
+### Frontend
+
+1. Install dependencies:
+
+	```bash
+	cd frontend
+	npm install
+	```
+
+2. Ensure the API base URL points to your backend.
+
+	The Axios instance is configured in `frontend/src/api/axios.js`. By default it targets `http://localhost:4000/api`.
+
+3. Start the dev server:
+
+	```bash
+	npm run dev
+	```
+
+## API Overview
+
+Base path: `/api`
+
+### Auth
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me` (protected)
+- `POST /api/auth/logout`
+- `POST /api/auth/avatar` (protected, form-data field: `avatar`)
 
 ### Posts
-- `GET /api/posts` - Get all posts (public)
-- `GET /api/posts/:id` - Get single post (public)
-- `POST /api/posts` - Create post (protected)
-- `PUT /api/posts/:id` - Update post (protected)
-- `DELETE /api/posts/:id` - Delete post (protected)
-- `POST /api/posts/:id/like` - Like/unlike post (protected)
-- `POST /api/posts/:id/comment` - Add comment (protected)
 
-## Development Roadmap
+- `GET /api/posts` (public)
+- `POST /api/posts` (protected)
+- `PUT /api/posts/:id` (protected)
+- `DELETE /api/posts/:id` (protected)
+- `POST /api/posts/:id/like` (protected)
+- `GET /api/posts/:id/comments` (public)
+- `POST /api/posts/:id/comments` (protected)
 
-- [ ] Set up dependencies
-- [ ] Implement backend authentication
-- [ ] Implement backend post CRUD
-- [ ] Implement frontend UI components
-- [ ] Implement frontend authentication flow
-- [ ] Add real-time features with Socket.IO
-- [ ] Add pagination and infinite scroll
-- [ ] Add user profiles
-- [ ] Deploy to production
+## Deployment Notes (Render)
+
+This repo is structured as two services:
+
+- Backend: Render Web Service (Node)
+- Frontend: Render Static Site (Vite build)
+
+Minimum backend environment variables:
+
+- `MONGODB_URI`
+- `JWT_SECRET`
+- `CLIENT_URL` (set to the deployed frontend URL)
+- `COOKIE_SECURE=true` in production
+
+Important:
+
+- Avatar uploads are written to `backend/uploads`. Render instances have an ephemeral filesystem by default; use a persistent disk or external storage if you need uploads to survive restarts.
+- The avatar URL in the backend is currently constructed using `http://localhost:4000/...`. For production, update it to use your deployed backend base URL.
 
 ## License
 
