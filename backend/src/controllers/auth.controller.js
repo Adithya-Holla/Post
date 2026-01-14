@@ -70,6 +70,7 @@ export const register = async (req, res) => {
         username: user.username,
         email: user.email,
         avatarUrl: user.avatarUrl,
+        bio: user.bio,
         createdAt: user.createdAt
       }
     });
@@ -143,6 +144,7 @@ export const login = async (req, res) => {
         username: user.username,
         email: user.email,
         avatarUrl: user.avatarUrl,
+        bio: user.bio,
         createdAt: user.createdAt
       }
     });
@@ -222,11 +224,63 @@ export const uploadAvatar = async (req, res) => {
         username: user.username,
         email: user.email,
         avatarUrl: user.avatarUrl,
+        bio: user.bio,
         createdAt: user.createdAt
       }
     });
   } catch (error) {
     console.error('Upload avatar error:', error);
     res.status(500).json({ message: 'Server error during avatar upload' });
+  }
+};
+
+/**
+ * Update user bio
+ * PUT /api/auth/bio
+ */
+export const updateBio = async (req, res) => {
+  try {
+    const { bio } = req.body;
+
+    // Validation
+    if (bio === undefined || bio === null) {
+      return res.status(400).json({ 
+        message: 'Bio is required' 
+      });
+    }
+
+    if (bio.length > 200) {
+      return res.status(400).json({ 
+        message: 'Bio must not exceed 200 characters' 
+      });
+    }
+
+    // Update user's bio in database
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { bio: bio.trim() },
+      { new: true }
+    ).select('-passwordHash');
+
+    if (!user) {
+      return res.status(404).json({ 
+        message: 'User not found' 
+      });
+    }
+
+    res.status(200).json({
+      message: 'Bio updated successfully',
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+        bio: user.bio,
+        createdAt: user.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Update bio error:', error);
+    res.status(500).json({ message: 'Server error during bio update' });
   }
 };

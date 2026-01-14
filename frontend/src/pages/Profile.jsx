@@ -20,9 +20,10 @@ function Profile() {
   const [error, setError] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
-  const [bio, setBio] = useState('Welcome to my profile! 👋 Sharing thoughts and ideas.');
+  const [bio, setBio] = useState('');
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [bioInput, setBioInput] = useState('');
+  const [savingBio, setSavingBio] = useState(false);
   const [showCropper, setShowCropper] = useState(false);
   const [imageToCrop, setImageToCrop] = useState(null);
   const fileInputRef = useRef(null);
@@ -37,6 +38,7 @@ function Profile() {
 
   useEffect(() => {
     if (user) {
+      setBio(user.bio || 'Welcome to my profile! 👋 Sharing thoughts and ideas.');
       if (isOwnProfile) {
         setProfileUser(user);
         fetchUserPosts();
@@ -139,6 +141,20 @@ function Profile() {
     fileInputRef.current?.click();
   };
 
+  const handleSaveBio = async () => {
+    setSavingBio(true);
+    try {
+      const response = await axios.put('/auth/bio', { bio: bioInput });
+      setBio(response.data.user.bio);
+      setIsEditingBio(false);
+    } catch (error) {
+      console.error('Error updating bio:', error);
+      alert(error.response?.data?.message || 'Failed to update bio');
+    } finally {
+      setSavingBio(false);
+    }
+  };
+
   if (authLoading || !user) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -239,13 +255,11 @@ function Profile() {
                     />
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => {
-                          setBio(bioInput);
-                          setIsEditingBio(false);
-                        }}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors duration-200"
+                        onClick={handleSaveBio}
+                        disabled={savingBio}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors duration-200"
                       >
-                        Save
+                        {savingBio ? 'Saving...' : 'Save'}
                       </button>
                       <button
                         onClick={() => {

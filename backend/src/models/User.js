@@ -30,6 +30,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff'
   },
+  bio: {
+    type: String,
+    default: 'Welcome to my profile! 👋 Sharing thoughts and ideas.',
+    maxlength: [200, 'Bio must not exceed 200 characters']
+  },
   createdAt: {
     type: Date,
     default: Date.now

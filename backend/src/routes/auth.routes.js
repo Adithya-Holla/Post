@@ -4,7 +4,7 @@
  */
 
 import express from 'express';
-import { register, login, getCurrentUser, logout, uploadAvatar } from '../controllers/auth.controller.js';
+import { register, login, getCurrentUser, logout, uploadAvatar, updateBio } from '../controllers/auth.controller.js';
 import { protect } from '../middleware/auth.middleware.js';
 import { upload } from '../config/multer.js';
 
@@ -24,5 +24,8 @@ router.post('/logout', logout);
 
 // POST /api/auth/avatar - upload avatar (protected)
 router.post('/avatar', protect, upload.single('avatar'), uploadAvatar);
+
+// PUT /api/auth/bio - update bio (protected)
+router.put('/bio', protect, updateBio);
 
 export default router;
