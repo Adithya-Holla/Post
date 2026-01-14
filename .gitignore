@@ -1,0 +1,42 @@
+# --- Root ignore for Post monorepo ---
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env files (never commit secrets)
+**/.env
+**/.env.*
+
+# Node deps
+**/node_modules/
+
+# Build outputs
+**/dist/
+**/build/
+**/.vite/
+
+# Coverage / test artifacts
+**/coverage/
+
+# Runtime uploads (avoid committing user data)
+backend/uploads/
+
+# Optional: Render local tooling
+.render/
+
+# Git
+*.orig
