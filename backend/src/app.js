@@ -64,7 +64,8 @@ app.use('/api/users', userRoutes);
 app.use((err, req, res, next) => {
   if (err.name === 'MulterError') {
     if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ message: 'File size too large. Maximum size is 5MB.' });
+      const maxMb = Math.round((config.maxFileSize || 5 * 1024 * 1024) / (1024 * 1024));
+      return res.status(400).json({ message: `File size too large. Maximum size is ${maxMb}MB.` });
     }
     return res.status(400).json({ message: err.message });
   }

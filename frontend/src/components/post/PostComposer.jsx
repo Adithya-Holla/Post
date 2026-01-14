@@ -9,6 +9,7 @@ import axios from '../../api/axios';
 import Modal from '../common/Modal';
 
 const DRAFT_KEY = 'postDraft';
+const DEFAULT_MAX_MEDIA_SIZE = 5 * 1024 * 1024; // 5MB
 
 function PostComposer({ onPostCreated }) {
   const { user } = useAuth();
@@ -49,6 +50,8 @@ function PostComposer({ onPostCreated }) {
   const maxLength = 520;
   const remainingChars = maxLength - content.length;
 
+  const maxMediaSize = Number(import.meta.env.VITE_MAX_MEDIA_SIZE) || DEFAULT_MAX_MEDIA_SIZE;
+
   const handleMediaSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -59,9 +62,9 @@ function PostComposer({ onPostCreated }) {
       return;
     }
 
-    // Enforce 5MB to match backend
-    if (file.size > 5 * 1024 * 1024) {
-      setError('File size too large. Maximum size is 5MB.');
+    if (file.size > maxMediaSize) {
+      const maxMb = Math.round(maxMediaSize / (1024 * 1024));
+      setError(`File size too large. Maximum size is ${maxMb}MB.`);
       return;
     }
 
