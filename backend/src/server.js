@@ -16,7 +16,7 @@ await connectDB();
 // Start HTTP server
 const server = app.listen(PORT, () => {
   console.log(`🚀 Server running in ${config.nodeEnv} mode on port ${PORT}`);
-  console.log(`✅ Health check: http://localhost:${PORT}/health`);
+  console.log(`✅ Health check: https://post-backend-jk26.onrender.com/health`);
 });
 
 // Initialize Socket.IO

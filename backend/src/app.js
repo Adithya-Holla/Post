@@ -6,7 +6,6 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { config } from './config/env.js';
@@ -26,9 +25,6 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-
-// Serve static files (uploaded avatars)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Health check endpoint
 app.get('/health', (req, res) => {

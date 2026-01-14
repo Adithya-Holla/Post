@@ -203,8 +203,9 @@ export const uploadAvatar = async (req, res) => {
       });
     }
 
-    // Construct avatar URL
-    const avatarUrl = `http://localhost:4000/uploads/avatars/${req.file.filename}`;
+    // Store avatar in DB as a data URL to avoid relying on local filesystem storage.
+    const base64 = req.file.buffer.toString('base64');
+    const avatarUrl = `data:${req.file.mimetype};base64,${base64}`;
 
     // Update user's avatar in database
     const user = await User.findByIdAndUpdate(
