@@ -8,22 +8,44 @@ function ImageCropper({ imageSrc, onCropComplete, onCancel }) {
   const canvasRef = useRef(null);
   const [crop, setCrop] = useState({ x: 0, y: 0, size: 200 });
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const imageRef = useRef(null);
+
+  const clampCrop = (img, nextCrop) => {
+    const minSize = 64;
+    const maxSize = Math.min(img.width, img.height);
+
+    const size = Math.max(minSize, Math.min(Number(nextCrop.size) || minSize, maxSize));
+    const maxX = Math.max(0, img.width - size);
+    const maxY = Math.max(0, img.height - size);
+
+    const x = Math.max(0, Math.min(Number(nextCrop.x) || 0, maxX));
+    const y = Math.max(0, Math.min(Number(nextCrop.y) || 0, maxY));
+
+    return { x, y, size };
+  };
 
   useEffect(() => {
     if (imageSrc) {
       const img = new Image();
+      img.onerror = () => {
+        setImageLoaded(false);
+        setLoadError('Could not load this image for cropping. Try using a JPG/PNG image.');
+      };
       img.onload = () => {
         imageRef.current = img;
-        // Calculate initial crop to center square
-        const size = Math.min(img.width, img.height);
-        setCrop({
+        setLoadError('');
+        // Default to a slightly smaller square so portrait images can move on X/Y.
+        const baseSize = Math.min(img.width, img.height);
+        const size = Math.max(64, Math.floor(baseSize * 0.85));
+        const initial = clampCrop(img, {
           x: (img.width - size) / 2,
           y: (img.height - size) / 2,
-          size: size
+          size
         });
+        setCrop(initial);
         setImageLoaded(true);
-        drawCanvas(img, (img.width - size) / 2, (img.height - size) / 2, size);
+        drawCanvas(img, initial.x, initial.y, initial.size);
       };
       img.src = imageSrc;
     }
@@ -50,17 +72,42 @@ function ImageCropper({ imageSrc, onCropComplete, onCancel }) {
     const img = imageRef.current;
     if (!img) return;
 
-    const newCrop = { ...crop, [axis]: parseFloat(value) };
-    setCrop(newCrop);
-    drawCanvas(img, newCrop.x, newCrop.y, newCrop.size);
+    const next = clampCrop(img, { ...crop, [axis]: parseFloat(value) });
+    setCrop(next);
+    drawCanvas(img, next.x, next.y, next.size);
   };
 
-  const handleSave = () => {
+  const canvasToBlob = (canvas, type, quality) =>
+    new Promise((resolve) => {
+      if (!canvas) return resolve(null);
+      if (canvas.toBlob) {
+        canvas.toBlob((blob) => resolve(blob), type, quality);
+        return;
+      }
+      // Fallback for older Safari
+      try {
+        const dataUrl = canvas.toDataURL(type, quality);
+        const parts = dataUrl.split(',');
+        const mime = parts[0].match(/:(.*?);/)?.[1] || type;
+        const binary = atob(parts[1]);
+        const arr = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+        resolve(new Blob([arr], { type: mime }));
+      } catch {
+        resolve(null);
+      }
+    });
+
+  const handleSave = async () => {
+    if (!imageLoaded) return;
     const canvas = canvasRef.current;
-    canvas.toBlob((blob) => {
-      const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
-      onCropComplete(file);
-    }, 'image/jpeg', 0.95);
+    const blob = await canvasToBlob(canvas, 'image/jpeg', 0.95);
+    if (!blob) {
+      setLoadError('Could not export cropped image. Please try again.');
+      return;
+    }
+    const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+    onCropComplete(file);
   };
 
   return (
@@ -69,6 +116,12 @@ function ImageCropper({ imageSrc, onCropComplete, onCancel }) {
         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
           Crop Profile Picture
         </h3>
+
+        {loadError && (
+          <div className="mb-4 bg-red-900/20 border border-red-800 rounded-xl px-4 py-3">
+            <p className="text-red-300 text-sm font-medium">{loadError}</p>
+          </div>
+        )}
 
         {/* Canvas Preview */}
         <div className="mb-6 flex justify-center">
@@ -94,6 +147,7 @@ function ImageCropper({ imageSrc, onCropComplete, onCancel }) {
                 value={crop.x}
                 onChange={(e) => handleCropChange('x', e.target.value)}
                 className="w-full"
+                disabled={Math.max(0, imageRef.current.width - crop.size) === 0}
               />
             </div>
 
@@ -109,6 +163,7 @@ function ImageCropper({ imageSrc, onCropComplete, onCancel }) {
                 value={crop.y}
                 onChange={(e) => handleCropChange('y', e.target.value)}
                 className="w-full"
+                disabled={Math.max(0, imageRef.current.height - crop.size) === 0}
               />
             </div>
 
@@ -119,7 +174,7 @@ function ImageCropper({ imageSrc, onCropComplete, onCancel }) {
               </label>
               <input
                 type="range"
-                min="100"
+                min="64"
                 max={Math.min(imageRef.current.width, imageRef.current.height)}
                 value={crop.size}
                 onChange={(e) => handleCropChange('size', e.target.value)}
@@ -133,6 +188,7 @@ function ImageCropper({ imageSrc, onCropComplete, onCancel }) {
         <div className="flex gap-3">
           <button
             onClick={handleSave}
+            disabled={!imageLoaded}
             className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200"
           >
             Save

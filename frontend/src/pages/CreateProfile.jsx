@@ -40,16 +40,20 @@ function CreateProfile() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setImageToCrop(event.target.result);
-      setShowCropper(true);
-    };
-    reader.readAsDataURL(file);
+    const objectUrl = URL.createObjectURL(file);
+    setImageToCrop(objectUrl);
+    setShowCropper(true);
   };
 
   const handleCropComplete = async (croppedFile) => {
     setShowCropper(false);
+    if (imageToCrop) {
+      try {
+        URL.revokeObjectURL(imageToCrop);
+      } catch {
+        // ignore
+      }
+    }
     setImageToCrop(null);
     setUploading(true);
     setUploadError('');
@@ -71,6 +75,13 @@ function CreateProfile() {
 
   const handleCropCancel = () => {
     setShowCropper(false);
+    if (imageToCrop) {
+      try {
+        URL.revokeObjectURL(imageToCrop);
+      } catch {
+        // ignore
+      }
+    }
     setImageToCrop(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
