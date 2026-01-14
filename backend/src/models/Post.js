@@ -5,6 +5,28 @@
 
 import mongoose from 'mongoose';
 
+const replySchema = new mongoose.Schema({
+  author: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  text: {
+    type: String,
+    required: [true, 'Reply text is required'],
+    trim: true,
+    maxlength: [500, 'Reply must not exceed 500 characters']
+  },
+  likes: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
 const commentSchema = new mongoose.Schema({
   author: {
     type: mongoose.Schema.Types.ObjectId,
@@ -17,6 +39,11 @@ const commentSchema = new mongoose.Schema({
     trim: true,
     maxlength: [500, 'Comment must not exceed 500 characters']
   },
+  likes: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  replies: [replySchema],
   createdAt: {
     type: Date,
     default: Date.now

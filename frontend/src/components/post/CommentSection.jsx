@@ -1,11 +1,242 @@
 /**
  * CommentSection Component
- * Displays comments and comment input for a post
+ * Displays comments with likes, replies support
  */
 import React, { useState, useEffect, useRef } from 'react';
 import axios from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
+
+function CommentItem({ comment, postId }) {
+  const { user, isAuthenticated } = useAuth();
+  const [liked, setLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(comment.likesCount || 0);
+  const [showReplies, setShowReplies] = useState(false);
+  const [replies, setReplies] = useState([]);
+  const [repliesCount, setRepliesCount] = useState(comment.repliesCount || 0);
+  const [replyText, setReplyText] = useState('');
+  const [submittingReply, setSubmittingReply] = useState(false);
+  const [loadingReplies, setLoadingReplies] = useState(false);
+
+  const handleLike = async () => {
+    if (!isAuthenticated) return;
+
+    // Optimistic update
+    const wasLiked = liked;
+    const previousCount = likesCount;
+    setLiked(!liked);
+    setLikesCount(liked ? likesCount - 1 : likesCount + 1);
+
+    try {
+      const response = await axios.post(`/posts/${postId}/comments/${comment.id}/like`);
+      setLikesCount(response.data.likesCount);
+      setLiked(response.data.liked);
+    } catch (error) {
+      setLiked(wasLiked);
+      setLikesCount(previousCount);
+      console.error('Error liking comment:', error);
+    }
+  };
+
+  const fetchReplies = async () => {
+    if (replies.length > 0) {
+      setShowReplies(!showReplies);
+      return;
+    }
+
+    setLoadingReplies(true);
+    try {
+      const response = await axios.get(`/posts/${postId}/comments/${comment.id}/replies`);
+      setReplies(response.data.replies);
+      setShowReplies(true);
+    } catch (error) {
+      console.error('Error fetching replies:', error);
+    } finally {
+      setLoadingReplies(false);
+    }
+  };
+
+  const handleReplySubmit = async (e) => {
+    e.preventDefault();
+    if (!replyText.trim()) return;
+
+    setSubmittingReply(true);
+    try {
+      const response = await axios.post(`/posts/${postId}/comments/${comment.id}/replies`, {
+        text: replyText
+      });
+      setReplies([...replies, response.data.reply]);
+      setRepliesCount(repliesCount + 1);
+      setReplyText('');
+      setShowReplies(true);
+    } catch (error) {
+      console.error('Error posting reply:', error);
+    } finally {
+      setSubmittingReply(false);
+    }
+  };
+
+  return (
+    <div className="flex gap-3 group">
+      <img
+        src={comment.author.avatarUrl}
+        alt={comment.author.username}
+        className="w-9 h-9 rounded-full flex-shrink-0 ring-2 ring-gray-700 object-cover"
+      />
+      <div className="flex-1 min-w-0">
+        <div className="bg-gray-900 rounded-xl px-4 py-3 border border-gray-800">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="font-semibold text-sm text-white">
+              {comment.author.username}
+            </span>
+            <span className="w-1 h-1 bg-gray-600 rounded-full"></span>
+            <span className="text-xs text-gray-400">
+              {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+            </span>
+          </div>
+          <p className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap break-words">
+            {comment.text}
+          </p>
+        </div>
+        
+        {/* Comment Actions */}
+        <div className="flex items-center gap-4 mt-2 ml-4">
+          <button
+            onClick={handleLike}
+            disabled={!isAuthenticated}
+            className={`flex items-center gap-1 text-xs font-medium transition-colors duration-200 ${
+              liked
+                ? 'text-red-500'
+                : 'text-gray-400 hover:text-red-500'
+            } disabled:cursor-not-allowed`}
+          >
+            <svg className="w-4 h-4" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+            {likesCount > 0 && <span>{likesCount}</span>}
+          </button>
+
+          {isAuthenticated && (
+            <button
+              onClick={() => setShowReplies(!showReplies)}
+              className="text-xs font-medium text-gray-400 hover:text-blue-400 transition-colors duration-200"
+            >
+              Reply
+            </button>
+          )}
+
+          {repliesCount > 0 && (
+            <button
+              onClick={fetchReplies}
+              disabled={loadingReplies}
+              className="text-xs font-medium text-gray-400 hover:text-blue-400 transition-colors duration-200"
+            >
+              {loadingReplies ? 'Loading...' : showReplies ? 'Hide' : `View ${repliesCount} ${repliesCount === 1 ? 'reply' : 'replies'}`}
+            </button>
+          )}
+        </div>
+
+        {/* Reply Input */}
+        {showReplies && isAuthenticated && (
+          <form onSubmit={handleReplySubmit} className="mt-3 ml-4">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                placeholder="Write a reply..."
+                className="flex-1 px-3 py-2 text-sm bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-200"
+                maxLength={500}
+              />
+              <button
+                type="submit"
+                disabled={submittingReply || !replyText.trim()}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+              >
+                {submittingReply ? '...' : 'Reply'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Replies List */}
+        {showReplies && replies.length > 0 && (
+          <div className="mt-3 ml-4 space-y-3">
+            {replies.map((reply) => (
+              <ReplyItem key={reply.id} reply={reply} postId={postId} commentId={comment.id} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ReplyItem({ reply, postId, commentId }) {
+  const { user, isAuthenticated } = useAuth();
+  const [liked, setLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(reply.likesCount || 0);
+
+  const handleLike = async () => {
+    if (!isAuthenticated) return;
+
+    const wasLiked = liked;
+    const previousCount = likesCount;
+    setLiked(!liked);
+    setLikesCount(liked ? likesCount - 1 : likesCount + 1);
+
+    try {
+      const response = await axios.post(`/posts/${postId}/comments/${commentId}/replies/${reply.id}/like`);
+      setLikesCount(response.data.likesCount);
+      setLiked(response.data.liked);
+    } catch (error) {
+      setLiked(wasLiked);
+      setLikesCount(previousCount);
+      console.error('Error liking reply:', error);
+    }
+  };
+
+  return (
+    <div className="flex gap-2">
+      <img
+        src={reply.author.avatarUrl}
+        alt={reply.author.username}
+        className="w-7 h-7 rounded-full flex-shrink-0 ring-2 ring-gray-700 object-cover"
+      />
+      <div className="flex-1 min-w-0">
+        <div className="bg-gray-800 rounded-lg px-3 py-2 border border-gray-700">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-semibold text-xs text-white">
+              {reply.author.username}
+            </span>
+            <span className="w-1 h-1 bg-gray-600 rounded-full"></span>
+            <span className="text-xs text-gray-400">
+              {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: true })}
+            </span>
+          </div>
+          <p className="text-gray-200 text-xs leading-relaxed whitespace-pre-wrap break-words">
+            {reply.text}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3 mt-1 ml-3">
+          <button
+            onClick={handleLike}
+            disabled={!isAuthenticated}
+            className={`flex items-center gap-1 text-xs font-medium transition-colors duration-200 ${
+              liked ? 'text-red-500' : 'text-gray-400 hover:text-red-500'
+            } disabled:cursor-not-allowed`}
+          >
+            <svg className="w-3 h-3" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+            {likesCount > 0 && <span>{likesCount}</span>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function CommentSection({ postId }) {
   const { user } = useAuth();
@@ -189,44 +420,8 @@ function CommentSection({ postId }) {
         </div>
       ) : (
         <div className="space-y-4">
-          {comments.map((comment, index) => (
-            <div
-              key={comment.id}
-              className="flex gap-3 group animate-fadeIn"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <img
-                src={comment.author.avatarUrl}
-                alt={comment.author.username}
-                className="w-9 h-9 rounded-full flex-shrink-0 ring-2 ring-gray-700 transition-colors duration-200 object-cover"
-              />
-              <div className="flex-1 min-w-0">
-                <div className="bg-gray-900 rounded-xl px-4 py-3 border border-gray-800 transition-colors duration-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="font-semibold text-sm text-gray-900 dark:text-white">
-                      {comment.author.username}
-                    </span>
-                    <span className="w-1 h-1 bg-gray-400 dark:bg-gray-600 rounded-full"></span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
-                    </span>
-                  </div>
-                  <p className="text-gray-800 dark:text-gray-200 text-sm leading-relaxed whitespace-pre-wrap break-words">
-                    {comment.text}
-                  </p>
-                </div>
-                
-                {/* Comment Actions (Future: Like, Reply) */}
-                <div className="flex items-center gap-4 mt-2 ml-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <button className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">
-                    Like
-                  </button>
-                  <button className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">
-                    Reply
-                  </button>
-                </div>
-              </div>
-            </div>
+          {comments.map((comment) => (
+            <CommentItem key={comment.id} comment={comment} postId={postId} />
           ))}
         </div>
       )}

@@ -351,6 +351,8 @@ export const getComments = async (req, res) => {
         username: comment.author.username,
         avatarUrl: comment.author.avatarUrl
       },
+      likesCount: comment.likes?.length || 0,
+      repliesCount: comment.replies?.length || 0,
       createdAt: comment.createdAt
     }));
 
@@ -361,5 +363,190 @@ export const getComments = async (req, res) => {
   } catch (error) {
     console.error('Get comments error:', error);
     res.status(500).json({ message: 'Server error while fetching comments' });
+  }
+};
+
+/**
+ * Like/unlike a comment
+ * POST /api/posts/:postId/comments/:commentId/like
+ */
+export const likeComment = async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    const userId = req.user.id.toString();
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    const likeIndex = comment.likes.findIndex(like => like.toString() === userId);
+    let liked;
+
+    if (likeIndex > -1) {
+      comment.likes.splice(likeIndex, 1);
+      liked = false;
+    } else {
+      comment.likes.push(req.user.id);
+      liked = true;
+    }
+
+    await post.save();
+
+    res.status(200).json({
+      likesCount: comment.likes.length,
+      liked
+    });
+  } catch (error) {
+    console.error('Like comment error:', error);
+    res.status(500).json({ message: 'Server error while liking comment' });
+  }
+};
+
+/**
+ * Add reply to a comment
+ * POST /api/posts/:postId/comments/:commentId/replies
+ */
+export const addReply = async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    const { text } = req.body;
+
+    if (!text || !text.trim()) {
+      return res.status(400).json({ message: 'Reply text is required' });
+    }
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    const reply = {
+      author: req.user.id,
+      text: text.trim(),
+      likes: []
+    };
+
+    comment.replies.push(reply);
+    await post.save();
+
+    // Populate author details
+    await post.populate('comments.replies.author', 'username avatarUrl');
+    const addedReply = comment.replies[comment.replies.length - 1];
+
+    res.status(201).json({
+      message: 'Reply added successfully',
+      reply: {
+        id: addedReply._id,
+        text: addedReply.text,
+        author: {
+          id: addedReply.author._id,
+          username: addedReply.author.username,
+          avatarUrl: addedReply.author.avatarUrl
+        },
+        likesCount: addedReply.likes.length,
+        createdAt: addedReply.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Add reply error:', error);
+    res.status(500).json({ message: 'Server error while adding reply' });
+  }
+};
+
+/**
+ * Get replies for a comment
+ * GET /api/posts/:postId/comments/:commentId/replies
+ */
+export const getReplies = async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+
+    const post = await Post.findById(postId).populate('comments.replies.author', 'username avatarUrl');
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    const formattedReplies = comment.replies.map(reply => ({
+      id: reply._id,
+      text: reply.text,
+      author: {
+        id: reply.author._id,
+        username: reply.author.username,
+        avatarUrl: reply.author.avatarUrl
+      },
+      likesCount: reply.likes.length,
+      createdAt: reply.createdAt
+    }));
+
+    res.status(200).json({
+      replies: formattedReplies,
+      count: formattedReplies.length
+    });
+  } catch (error) {
+    console.error('Get replies error:', error);
+    res.status(500).json({ message: 'Server error while fetching replies' });
+  }
+};
+
+/**
+ * Like/unlike a reply
+ * POST /api/posts/:postId/comments/:commentId/replies/:replyId/like
+ */
+export const likeReply = async (req, res) => {
+  try {
+    const { postId, commentId, replyId } = req.params;
+    const userId = req.user.id.toString();
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    const reply = comment.replies.id(replyId);
+    if (!reply) {
+      return res.status(404).json({ message: 'Reply not found' });
+    }
+
+    const likeIndex = reply.likes.findIndex(like => like.toString() === userId);
+    let liked;
+
+    if (likeIndex > -1) {
+      reply.likes.splice(likeIndex, 1);
+      liked = false;
+    } else {
+      reply.likes.push(req.user.id);
+      liked = true;
+    }
+
+    await post.save();
+
+    res.status(200).json({
+      likesCount: reply.likes.length,
+      liked
+    });
+  } catch (error) {
+    console.error('Like reply error:', error);
+    res.status(500).json({ message: 'Server error while liking reply' });
   }
 };

@@ -63,11 +63,20 @@ function PostCard({ post, showActions = false, onDelete, onUpdate }) {
       return;
     }
 
+    // Optimistic update for instant feedback
+    const wasLiked = liked;
+    const previousCount = likesCount;
+    setLiked(!liked);
+    setLikesCount(liked ? likesCount - 1 : likesCount + 1);
+
     try {
       const response = await axios.post(`/posts/${id}/like`);
       setLikesCount(response.data.likesCount);
       setLiked(response.data.liked);
     } catch (error) {
+      // Revert on error
+      setLiked(wasLiked);
+      setLikesCount(previousCount);
       console.error('Error toggling like:', error);
       alert(error.response?.data?.message || 'Failed to like post');
     }

@@ -4,7 +4,7 @@
  */
 
 import express from 'express';
-import { getAllPosts, createPost, updatePost, deletePost, likePost, addComment, getComments } from '../controllers/post.controller.js';
+import { getAllPosts, createPost, updatePost, deletePost, likePost, addComment, getComments, likeComment, addReply, getReplies, likeReply } from '../controllers/post.controller.js';
 import { protect } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
@@ -29,5 +29,17 @@ router.get('/:id/comments', getComments);
 
 // POST /api/posts/:id/comments - add comment (protected)
 router.post('/:id/comments', protect, addComment);
+
+// POST /api/posts/:postId/comments/:commentId/like - like/unlike comment (protected)
+router.post('/:postId/comments/:commentId/like', protect, likeComment);
+
+// GET /api/posts/:postId/comments/:commentId/replies - get replies (public)
+router.get('/:postId/comments/:commentId/replies', getReplies);
+
+// POST /api/posts/:postId/comments/:commentId/replies - add reply (protected)
+router.post('/:postId/comments/:commentId/replies', protect, addReply);
+
+// POST /api/posts/:postId/comments/:commentId/replies/:replyId/like - like/unlike reply (protected)
+router.post('/:postId/comments/:commentId/replies/:replyId/like', protect, likeReply);
 
 export default router;
