@@ -4,8 +4,17 @@
  */
 
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import User from '../models/User.js';
 import { generateToken, cookieOptions } from '../utils/token.js';
+import { config } from '../config/env.js';
+import { sendPasswordResetEmail } from '../utils/mailer.js';
+
+const RESET_TOKEN_BYTES = 32;
+const RESET_TOKEN_TTL_MS = 15 * 60 * 1000;
+
+const hashResetToken = (token) =>
+  crypto.createHash('sha256').update(token).digest('hex');
 
 /**
  * Register new user
@@ -13,7 +22,9 @@ import { generateToken, cookieOptions } from '../utils/token.js';
  */
 export const register = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const username = (req.body?.username || '').trim();
+    const email = (req.body?.email || '').trim().toLowerCase();
+    const password = req.body?.password;
 
     // Validation
     if (!username || !email || !password) {
@@ -90,12 +101,120 @@ export const register = async (req, res) => {
 };
 
 /**
+ * Check username availability
+ * GET /api/auth/check-username?username=...
+ */
+export const checkUsernameAvailability = async (req, res) => {
+  try {
+    const username = (req.query.username || '').trim();
+
+    // Keep the response shape stable for the UI.
+    if (!username || username.length < 3 || username.length > 30) {
+      return res.status(200).json({ available: false, reason: 'invalid' });
+    }
+
+    const exists = await User.exists({ username });
+    return res.status(200).json({ available: !exists });
+  } catch (error) {
+    console.error('Check username error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * Forgot password
+ * POST /api/auth/forgot-password
+ * Security: always returns a generic message (no email enumeration).
+ */
+export const forgotPassword = async (req, res) => {
+  const genericMessage =
+    'If an account with that email exists, we sent a password reset link.';
+
+  try {
+    const email = (req.body?.email || '').trim().toLowerCase();
+    if (!email) {
+      return res.status(200).json({ message: genericMessage });
+    }
+
+    const user = await User.findOne({ email });
+    if (user) {
+      const resetToken = crypto.randomBytes(RESET_TOKEN_BYTES).toString('hex');
+      user.resetPasswordTokenHash = hashResetToken(resetToken);
+      user.resetPasswordTokenExpiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+      await user.save();
+
+      const base = (config.clientUrl || 'http://localhost:5173').replace(/\/$/, '');
+      const resetUrl = `${base}/reset-password/${resetToken}`;
+
+      await sendPasswordResetEmail({
+        to: user.email,
+        username: user.username,
+        resetUrl
+      });
+    }
+
+    return res.status(200).json({ message: genericMessage });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    // Still return generic message to avoid user enumeration via error behavior.
+    return res.status(200).json({ message: genericMessage });
+  }
+};
+
+/**
+ * Reset password
+ * POST /api/auth/reset-password/:token
+ */
+export const resetPassword = async (req, res) => {
+  try {
+    const token = (req.params.token || '').trim();
+    const { password } = req.body || {};
+
+    if (!token || token.length < 20) {
+      return res.status(400).json({ message: 'Invalid or expired reset token' });
+    }
+
+    if (!password || password.length < 6) {
+      return res
+        .status(400)
+        .json({ message: 'Password must be at least 6 characters' });
+    }
+
+    const tokenHash = hashResetToken(token);
+    const user = await User.findOne({
+      resetPasswordTokenHash: tokenHash,
+      resetPasswordTokenExpiresAt: { $gt: new Date() }
+    }).select('+resetPasswordTokenHash +resetPasswordTokenExpiresAt');
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired reset token' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.passwordHash = await bcrypt.hash(password, salt);
+    user.resetPasswordTokenHash = undefined;
+    user.resetPasswordTokenExpiresAt = undefined;
+    await user.save();
+
+    // Force clients to re-authenticate.
+    res.clearCookie('token', cookieOptions);
+
+    return res.status(200).json({ message: 'Password reset successful' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Server error during password reset' });
+  }
+};
+
+/**
  * Login user
  * POST /api/auth/login
  */
 export const login = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const username = (req.body?.username || '').trim();
+    const email = (req.body?.email || '').trim().toLowerCase();
+    const password = req.body?.password;
 
     // Validation
     if ((!username && !email) || !password) {

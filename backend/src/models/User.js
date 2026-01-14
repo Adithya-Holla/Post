@@ -26,6 +26,14 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Password is required']
   },
+  resetPasswordTokenHash: {
+    type: String,
+    select: false
+  },
+  resetPasswordTokenExpiresAt: {
+    type: Date,
+    select: false
+  },
   avatarUrl: {
     type: String,
     default: 'https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff'

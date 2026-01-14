@@ -5,6 +5,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import axios from '../api/axios';
+
+const USERNAME_CHECK_DEBOUNCE_MS = 350;
 
 function Register() {
   const navigate = useNavigate();
@@ -27,6 +30,8 @@ function Register() {
     password: false
   });
   const [passwordStrength, setPasswordStrength] = useState(0);
+  const [usernameStatus, setUsernameStatus] = useState('idle');
+  const [usernameMessage, setUsernameMessage] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -52,6 +57,11 @@ function Register() {
       if (/\d/.test(value)) strength++;
       if (/[^a-zA-Z\d]/.test(value)) strength++;
       setPasswordStrength(Math.min(strength, 4));
+    }
+
+    if (name === 'username') {
+      setUsernameStatus('idle');
+      setUsernameMessage('');
     }
   };
 
@@ -79,15 +89,77 @@ function Register() {
         password: 'Password must be at least 6 characters'
       });
     }
+
+    if (name === 'username' && value.trim().length >= 3) {
+      setUsernameStatus('checking');
+    }
   };
+
+  useEffect(() => {
+    const username = formData.username.trim();
+
+    if (!username) {
+      setUsernameStatus('idle');
+      setUsernameMessage('');
+      return;
+    }
+
+    if (username.length < 3) {
+      setUsernameStatus('invalid');
+      setUsernameMessage('Username must be at least 3 characters');
+      return;
+    }
+
+    if (username.length > 30) {
+      setUsernameStatus('invalid');
+      setUsernameMessage('Username must not exceed 30 characters');
+      return;
+    }
+
+    setUsernameStatus('checking');
+    setUsernameMessage('Checking availability...');
+
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await axios.get('/auth/check-username', {
+          params: { username }
+        });
+
+        if (res.data?.available) {
+          setUsernameStatus('available');
+          setUsernameMessage('Username is available');
+        } else {
+          setUsernameStatus(res.data?.reason === 'invalid' ? 'invalid' : 'taken');
+          setUsernameMessage(
+            res.data?.reason === 'invalid'
+              ? 'Username must be 3–30 characters'
+              : 'Username is already taken'
+          );
+        }
+      } catch (err) {
+        setUsernameStatus('error');
+        setUsernameMessage('Could not check username right now');
+      }
+    }, USERNAME_CHECK_DEBOUNCE_MS);
+
+    return () => clearTimeout(timeout);
+  }, [formData.username]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
+    const trimmedUsername = formData.username.trim();
+    const trimmedEmail = formData.email.trim();
+
     // Validation
-    if (!formData.username || !formData.email || !formData.password) {
+    if (!trimmedUsername || !trimmedEmail || !formData.password) {
       setError('All fields are required');
+      return;
+    }
+
+    if (usernameStatus === 'taken' || usernameStatus === 'invalid') {
+      setError('Please choose a different username');
       return;
     }
 
@@ -99,7 +171,11 @@ function Register() {
     setLoading(true);
 
     try {
-      const result = await register(formData);
+      const result = await register({
+        ...formData,
+        username: trimmedUsername,
+        email: trimmedEmail
+      });
       if (result.success) {
         navigate('/create-profile');
       } else {
@@ -182,17 +258,47 @@ function Register() {
                   } disabled:opacity-50 transition-colors duration-200`}
                   placeholder="johndoe"
                 />
-                {touched.username && fieldErrors.username && (
+                {(touched.username && fieldErrors.username) || usernameStatus === 'checking' || usernameStatus === 'available' || usernameStatus === 'taken' ? (
                   <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                    <svg className="w-5 h-5 text-red-500 dark:text-red-400 animate-fadeIn" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
+                    {touched.username && fieldErrors.username ? (
+                      <svg className="w-5 h-5 text-red-500 dark:text-red-400 animate-fadeIn" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    ) : usernameStatus === 'available' ? (
+                      <svg className="w-5 h-5 text-green-500 dark:text-green-400 animate-fadeIn" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.172 7.707 8.879a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    ) : usernameStatus === 'taken' ? (
+                      <svg className="w-5 h-5 text-red-500 dark:text-red-400 animate-fadeIn" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    ) : usernameStatus === 'checking' ? (
+                      <svg className="w-5 h-5 text-gray-400 dark:text-gray-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                      </svg>
+                    ) : null}
                   </div>
-                )}
+                ) : null}
               </div>
               {touched.username && fieldErrors.username && (
                 <p className="mt-1.5 text-sm text-red-600 dark:text-red-400 flex items-center gap-1 animate-slideDown">
                   {fieldErrors.username}
+                </p>
+              )}
+              {!fieldErrors.username && formData.username.trim() && (
+                <p
+                  className={`mt-1.5 text-sm flex items-center gap-1 animate-slideDown ${
+                    usernameStatus === 'available'
+                      ? 'text-green-600 dark:text-green-400'
+                      : usernameStatus === 'checking'
+                      ? 'text-gray-500 dark:text-gray-400'
+                      : usernameStatus === 'error'
+                      ? 'text-yellow-600 dark:text-yellow-400'
+                      : 'text-red-600 dark:text-red-400'
+                  }`}
+                >
+                  {usernameMessage}
                 </p>
               )}
             </div>
