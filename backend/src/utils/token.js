@@ -33,5 +33,6 @@ export const cookieOptions = {
   httpOnly: true,
   secure: config.cookieSecure,
   sameSite: config.cookieSameSite,
+  path: '/',
   maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
 };

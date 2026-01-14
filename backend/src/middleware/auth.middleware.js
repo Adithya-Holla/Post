@@ -44,6 +44,7 @@ export const protect = async (req, res, next) => {
       username: user.username,
       email: user.email,
       avatarUrl: user.avatarUrl,
+      bio: user.bio,
       createdAt: user.createdAt
     };
 
