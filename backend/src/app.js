@@ -8,14 +8,19 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import path from 'path';
 import { config } from './config/env.js';
 import authRoutes from './routes/auth.routes.js';
 import postRoutes from './routes/post.routes.js';
+import userRoutes from './routes/user.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
+
+// Behind a reverse proxy (e.g., Render) so req.protocol is correct
+app.set('trust proxy', 1);
 
 // Middleware
 app.use(cors({
@@ -28,6 +33,9 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Serve uploaded files (post media)
+app.use('/uploads', express.static(path.join(__dirname, '..', config.uploadDir)));
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -50,6 +58,7 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
+app.use('/api/users', userRoutes);
 
 // Error handling middleware for multer errors
 app.use((err, req, res, next) => {

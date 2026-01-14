@@ -101,7 +101,7 @@ function Register() {
     try {
       const result = await register(formData);
       if (result.success) {
-        navigate('/');
+        navigate('/create-profile');
       } else {
         setError(result.message || 'Registration failed');
       }

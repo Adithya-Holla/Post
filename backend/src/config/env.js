@@ -17,7 +17,9 @@ export const config = {
   jwtExpire: process.env.JWT_EXPIRE || '7d',
   cookieSecure: process.env.COOKIE_SECURE === 'true',
   cookieSameSite: process.env.COOKIE_SAME_SITE || 'strict',
-  clientUrl: process.env.CLIENT_URL || 'http://localhost:5173'
+  clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+  uploadDir: process.env.UPLOAD_DIR || 'uploads',
+  maxFileSize: Number(process.env.MAX_FILE_SIZE) || 5 * 1024 * 1024
 };
 
 export default config;

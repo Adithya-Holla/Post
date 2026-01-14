@@ -14,6 +14,8 @@ function PostComposer({ onPostCreated }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [content, setContent] = useState('');
+  const [mediaFile, setMediaFile] = useState(null);
+  const [mediaPreviewUrl, setMediaPreviewUrl] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -35,8 +37,50 @@ function PostComposer({ onPostCreated }) {
     }
   }, [content]);
 
-  const maxLength = 280;
+  // Cleanup preview URL
+  useEffect(() => {
+    return () => {
+      if (mediaPreviewUrl) {
+        URL.revokeObjectURL(mediaPreviewUrl);
+      }
+    };
+  }, [mediaPreviewUrl]);
+
+  const maxLength = 520;
   const remainingChars = maxLength - content.length;
+
+  const handleMediaSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isAllowed = file.type.startsWith('image/') || file.type.startsWith('video/');
+    if (!isAllowed) {
+      setError('Invalid attachment type. Please choose an image or a video.');
+      return;
+    }
+
+    // Enforce 5MB to match backend
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File size too large. Maximum size is 5MB.');
+      return;
+    }
+
+    setError(null);
+    setMediaFile(file);
+
+    if (mediaPreviewUrl) {
+      URL.revokeObjectURL(mediaPreviewUrl);
+    }
+    setMediaPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const handleRemoveMedia = () => {
+    setMediaFile(null);
+    if (mediaPreviewUrl) {
+      URL.revokeObjectURL(mediaPreviewUrl);
+    }
+    setMediaPreviewUrl(null);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,8 +96,24 @@ function PostComposer({ onPostCreated }) {
     setError(null);
 
     try {
-      const response = await axios.post('/posts', { content });
+      const response = mediaFile
+        ? await axios.post(
+            '/posts',
+            (() => {
+              const formData = new FormData();
+              formData.append('content', content);
+              formData.append('media', mediaFile);
+              return formData;
+            })(),
+            {
+              headers: {
+                'Content-Type': 'multipart/form-data'
+              }
+            }
+          )
+        : await axios.post('/posts', { content });
       setContent('');
+      handleRemoveMedia();
       localStorage.removeItem(DRAFT_KEY); // Clear draft after successful post
       if (onPostCreated) {
         onPostCreated(response.data.post);
@@ -122,6 +182,54 @@ function PostComposer({ onPostCreated }) {
                 {remainingChars}
               </div>
             </div>
+          </div>
+
+          {/* Media Attachment */}
+          <div className="mt-4">
+            {!mediaFile ? (
+              <label className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg cursor-pointer transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828L18 9.828a4 4 0 10-5.657-5.657L6.343 10.17a6 6 0 108.485 8.485L20 13" />
+                </svg>
+                Attach media
+                <input
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={handleMediaSelect}
+                  className="sr-only"
+                  disabled={submitting}
+                />
+              </label>
+            ) : (
+              <div className="border border-gray-800 rounded-xl p-3 bg-gray-950">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div className="min-w-0">
+                    <p className="text-sm text-gray-200 truncate">{mediaFile.name}</p>
+                    <p className="text-xs text-gray-500">{Math.round(mediaFile.size / 1024)} KB</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveMedia}
+                    className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-sm font-semibold transition-colors"
+                    disabled={submitting}
+                  >
+                    Remove
+                  </button>
+                </div>
+
+                {mediaPreviewUrl && mediaFile.type.startsWith('image/') && (
+                  <img
+                    src={mediaPreviewUrl}
+                    alt="Attachment preview"
+                    className="w-full max-h-72 object-contain rounded-lg border border-gray-800"
+                  />
+                )}
+
+                {mediaPreviewUrl && mediaFile.type.startsWith('video/') && (
+                  <video src={mediaPreviewUrl} controls className="w-full max-h-72 rounded-lg border border-gray-800" />
+                )}
+              </div>
+            )}
           </div>
 
           {error && (

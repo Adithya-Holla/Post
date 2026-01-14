@@ -77,7 +77,7 @@ function CommentItem({ comment, postId }) {
   };
 
   return (
-    <div className="flex gap-3 group">
+    <div className="flex gap-3 group max-w-full">
       <img
         src={comment.author.avatarUrl}
         alt={comment.author.username}
@@ -100,7 +100,7 @@ function CommentItem({ comment, postId }) {
         </div>
         
         {/* Comment Actions */}
-        <div className="flex items-center gap-4 mt-2 ml-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2 ml-0 sm:ml-4 max-w-full">
           <button
             onClick={handleLike}
             disabled={!isAuthenticated}
@@ -138,8 +138,8 @@ function CommentItem({ comment, postId }) {
 
         {/* Reply Input */}
         {showReplies && isAuthenticated && (
-          <form onSubmit={handleReplySubmit} className="mt-3 ml-4">
-            <div className="flex gap-2">
+          <form onSubmit={handleReplySubmit} className="mt-3 ml-0 sm:ml-4 max-w-full">
+            <div className="flex flex-col sm:flex-row gap-2 max-w-full">
               <input
                 type="text"
                 value={replyText}
@@ -161,7 +161,7 @@ function CommentItem({ comment, postId }) {
 
         {/* Replies List */}
         {showReplies && replies.length > 0 && (
-          <div className="mt-3 ml-4 space-y-3">
+          <div className="mt-3 ml-0 sm:ml-4 space-y-3 max-w-full">
             {replies.map((reply) => (
               <ReplyItem key={reply.id} reply={reply} postId={postId} commentId={comment.id} />
             ))}

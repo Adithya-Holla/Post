@@ -6,6 +6,7 @@
 import express from 'express';
 import { getAllPosts, createPost, updatePost, deletePost, likePost, addComment, getComments, likeComment, addReply, getReplies, likeReply } from '../controllers/post.controller.js';
 import { protect } from '../middleware/auth.middleware.js';
+import { uploadPostMedia } from '../config/multer.js';
 
 const router = express.Router();
 
@@ -13,7 +14,7 @@ const router = express.Router();
 router.get('/', getAllPosts);
 
 // POST /api/posts - create post (protected)
-router.post('/', protect, createPost);
+router.post('/', protect, uploadPostMedia.single('media'), createPost);
 
 // PUT /api/posts/:id - update post (protected)
 router.put('/:id', protect, updatePost);

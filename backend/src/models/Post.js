@@ -60,7 +60,25 @@ const postSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Post content is required'],
     trim: true,
-    maxlength: [280, 'Post must not exceed 280 characters']
+    maxlength: [520, 'Post must not exceed 520 characters']
+  },
+  media: {
+    url: {
+      type: String,
+      default: null
+    },
+    mimeType: {
+      type: String,
+      default: null
+    },
+    originalName: {
+      type: String,
+      default: null
+    },
+    size: {
+      type: Number,
+      default: null
+    }
   },
   likes: [{
     type: mongoose.Schema.Types.ObjectId,

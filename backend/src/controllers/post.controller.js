@@ -24,6 +24,14 @@ export const getAllPosts = async (req, res) => {
         username: post.author.username,
         avatarUrl: post.author.avatarUrl
       },
+      media: post.media?.url
+        ? {
+            url: post.media.url,
+            mimeType: post.media.mimeType,
+            originalName: post.media.originalName,
+            size: post.media.size
+          }
+        : null,
       likesCount: post.likes.length,
       commentsCount: post.comments.length,
       createdAt: post.createdAt,
@@ -55,16 +63,26 @@ export const createPost = async (req, res) => {
       });
     }
 
-    if (content.length > 280) {
+    if (content.length > 520) {
       return res.status(400).json({ 
-        message: 'Post content must not exceed 280 characters' 
+        message: 'Post content must not exceed 520 characters' 
       });
     }
+
+    const media = req.file
+      ? {
+          url: `${req.protocol}://${req.get('host')}/uploads/posts/${req.file.filename}`,
+          mimeType: req.file.mimetype,
+          originalName: req.file.originalname,
+          size: req.file.size
+        }
+      : undefined;
 
     // Create post
     const post = await Post.create({
       author: req.user.id,
-      content: content.trim()
+      content: content.trim(),
+      ...(media ? { media } : {})
     });
 
     // Populate author details
@@ -80,8 +98,16 @@ export const createPost = async (req, res) => {
           username: post.author.username,
           avatarUrl: post.author.avatarUrl
         },
-        likes: post.likes,
-        comments: post.comments,
+        media: post.media?.url
+          ? {
+              url: post.media.url,
+              mimeType: post.media.mimeType,
+              originalName: post.media.originalName,
+              size: post.media.size
+            }
+          : null,
+        likesCount: post.likes.length,
+        commentsCount: post.comments.length,
         createdAt: post.createdAt,
         updatedAt: post.updatedAt
       }
@@ -108,9 +134,9 @@ export const updatePost = async (req, res) => {
       });
     }
 
-    if (content.length > 280) {
+    if (content.length > 520) {
       return res.status(400).json({ 
-        message: 'Post content must not exceed 280 characters' 
+        message: 'Post content must not exceed 520 characters' 
       });
     }
 
@@ -147,6 +173,14 @@ export const updatePost = async (req, res) => {
           username: post.author.username,
           avatarUrl: post.author.avatarUrl
         },
+        media: post.media?.url
+          ? {
+              url: post.media.url,
+              mimeType: post.media.mimeType,
+              originalName: post.media.originalName,
+              size: post.media.size
+            }
+          : null,
         likesCount: post.likes.length,
         commentsCount: post.comments.length,
         createdAt: post.createdAt,

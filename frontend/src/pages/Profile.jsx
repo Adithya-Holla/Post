@@ -31,42 +31,47 @@ function Profile() {
   const isOwnProfile = !username || (user && username === user.username);
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    // Only require auth for /profile (own profile). Public profiles are viewable when logged out.
+    if (!authLoading && !user && !username) {
       navigate('/login');
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, username]);
 
   useEffect(() => {
-    if (user) {
-      setBio(user.bio || 'Welcome to my profile! 👋 Sharing thoughts and ideas.');
-      if (isOwnProfile) {
-        setProfileUser(user);
-        fetchUserPosts();
-      } else {
-        // Fetch other user's profile data (future enhancement)
-        setProfileUser(user); // For now, show current user
-        fetchUserPosts();
-      }
-    }
-  }, [user, username]);
+    const loadProfile = async () => {
+      // Only wait for auth when rendering the private /profile view.
+      if (authLoading && !username) return;
 
-  const fetchUserPosts = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get('/posts');
-      // Filter posts by current user
-      const userPosts = response.data.posts.filter(
-        (post) => post.author.id === user.id
-      );
-      setPosts(userPosts);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching posts:', err);
-      setError('Failed to load posts');
-    } finally {
-      setLoading(false);
-    }
-  };
+      const targetUsername = username || user?.username;
+      if (!targetUsername) return;
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Load profile user
+        if (!isOwnProfile) {
+          const profileRes = await axios.get(`/users/${targetUsername}`);
+          setProfileUser(profileRes.data.user);
+          setBio(profileRes.data.user.bio || 'Welcome to my profile! 👋 Sharing thoughts and ideas.');
+        } else {
+          setProfileUser(user);
+          setBio(user?.bio || 'Welcome to my profile! 👋 Sharing thoughts and ideas.');
+        }
+
+        // Load posts
+        const postsRes = await axios.get(`/users/${targetUsername}/posts`);
+        setPosts(postsRes.data.posts || []);
+      } catch (err) {
+        console.error('Error loading profile:', err);
+        setError(err.response?.data?.message || 'Failed to load profile');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, [authLoading, user, username, isOwnProfile]);
 
   const handlePostCreated = (newPost) => {
     setPosts([newPost, ...posts]);
@@ -87,9 +92,9 @@ function Profile() {
     if (!file) return;
 
     // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
     if (!allowedTypes.includes(file.type)) {
-      setUploadError('Invalid file type. Only JPG, PNG, and WEBP are allowed.');
+      setUploadError('Invalid file type. Supported: JPG, PNG, WEBP, HEIC, HEIF.');
       setTimeout(() => setUploadError(''), 3000);
       return;
     }
@@ -156,14 +161,19 @@ function Profile() {
   };
 
   if (authLoading || !user) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="relative">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 dark:border-gray-700"></div>
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 dark:border-blue-400 border-t-transparent absolute top-0 left-0"></div>
+    // When viewing a public profile while logged out, allow render.
+    if (username) {
+      // fall through to page render; loading state handled below
+    } else {
+      return (
+        <div className="flex justify-center items-center min-h-screen">
+          <div className="relative">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 dark:border-gray-700"></div>
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 dark:border-blue-400 border-t-transparent absolute top-0 left-0"></div>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
   }
 
   return (
@@ -183,17 +193,17 @@ function Profile() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif"
                   onChange={handleFileSelect}
-                  className="hidden"
+                  className="sr-only"
                 />
                 <div
                   onClick={isOwnProfile ? handleImageClick : undefined}
                   className={`relative ${isOwnProfile ? 'cursor-pointer' : ''}`}
                 >
                   <img
-                    src={profileUser?.avatarUrl || user.avatarUrl}
-                    alt={profileUser?.username || user.username}
+                    src={profileUser?.avatarUrl || user?.avatarUrl}
+                    alt={profileUser?.username || user?.username || 'User'}
                     className="w-32 h-32 rounded-full object-cover border-2 border-gray-800 ring-2 ring-gray-800"
                   />
                   
@@ -231,7 +241,7 @@ function Profile() {
               <div className="sm:ml-6 mt-4 sm:mt-0 text-center sm:text-left flex-1">
                 <div className="flex items-center justify-center sm:justify-start gap-3 mb-2">
                   <h1 className="text-3xl sm:text-4xl font-bold text-white">
-                    {profileUser?.username || user.username}
+                    {profileUser?.username || user?.username || username}
                   </h1>
                   {isOwnProfile && (
                     <span className="px-3 py-1 bg-gray-800 text-gray-200 text-xs font-semibold rounded-full border border-gray-700">
@@ -239,9 +249,11 @@ function Profile() {
                     </span>
                   )}
                 </div>
-                <p className="text-gray-600 dark:text-gray-400 text-base mb-3">
-                  {profileUser?.email || user.email}
-                </p>
+                {isOwnProfile && user?.email && (
+                  <p className="text-gray-600 dark:text-gray-400 text-base mb-3">
+                    {user.email}
+                  </p>
+                )}
                 {/* Bio Section */}
                 {isEditingBio ? (
                   <div className="space-y-2">
@@ -328,7 +340,7 @@ function Profile() {
               <svg className="w-7 h-7 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
               </svg>
-              Your Posts
+              {isOwnProfile ? 'Your Posts' : `${profileUser?.username || username}'s Posts`}
             </h2>
             {!loading && posts.length > 0 && (
               <span className="px-4 py-2 bg-gray-900 text-gray-200 text-sm font-semibold rounded-full border border-gray-800">

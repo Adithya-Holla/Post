@@ -9,10 +9,11 @@ import axios from '../../api/axios';
 import Modal from '../common/Modal';
 import CommentSection from './CommentSection';
 import { getSocket } from '../../config/socket';
+import { Link } from 'react-router-dom';
 
 function PostCard({ post, showActions = false, onDelete, onUpdate }) {
   const { user, isAuthenticated } = useAuth();
-  const { id, author, createdAt, updatedAt } = post;
+  const { id, author, createdAt, updatedAt, media } = post;
   
   const [content, setContent] = useState(post.content);
   const [likesCount, setLikesCount] = useState(post.likesCount);
@@ -26,9 +27,10 @@ function PostCard({ post, showActions = false, onDelete, onUpdate }) {
   const [deleting, setDeleting] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(updatedAt);
+  const [showMediaViewer, setShowMediaViewer] = useState(false);
 
   const isOwner = user && author.id === user.id;
-  const maxLength = 280;
+  const maxLength = 520;
   const remainingChars = maxLength - editContent.length;
   const wasEdited = lastUpdated && createdAt !== lastUpdated;
 
@@ -150,18 +152,22 @@ function PostCard({ post, showActions = false, onDelete, onUpdate }) {
             className="w-12 h-12 rounded-full flex-shrink-0 ring-2 ring-gray-200 dark:ring-gray-700"
           />
           <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <Link
+                  to={`/profile/${author.username}`}
+                  className="font-semibold text-gray-900 dark:text-white truncate max-w-full hover:underline block"
+                  title={`View ${author.username}'s profile`}
+                >
                   {author.username}
-                </h3>
-                <span className="text-gray-500 dark:text-gray-400 text-sm flex-shrink-0">
+                </Link>
+                <div className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm whitespace-nowrap">
                   {formatDistanceToNow(new Date(wasEdited ? lastUpdated : createdAt), { addSuffix: true })}
                   {wasEdited && <span className="ml-1">(edited)</span>}
-                </span>
+                </div>
               </div>
               {showActions && isOwner && !isEditing && (
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 flex-shrink-0">
                   <button
                     onClick={handleEditClick}
                     className="text-gray-400 hover:text-blue-400 p-2 rounded-lg hover:bg-gray-800 transition-colors duration-200"
@@ -240,6 +246,43 @@ function PostCard({ post, showActions = false, onDelete, onUpdate }) {
           /* Post Content - View Mode */
           <div className="mb-4">
             <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words text-lg leading-relaxed">{content}</p>
+          </div>
+        )}
+
+        {/* Media Attachment */}
+        {!isEditing && media?.url && (
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={() => setShowMediaViewer(true)}
+              className="block w-full rounded-xl overflow-hidden border border-gray-800 hover:border-gray-700 transition-colors"
+              aria-label="View attached media"
+            >
+              {media.mimeType?.startsWith('video/') ? (
+                <div className="relative bg-black">
+                  <video
+                    src={media.url}
+                    className="w-full max-h-80 object-contain"
+                    preload="metadata"
+                    muted
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-14 h-14 rounded-full bg-black/50 border border-white/20 flex items-center justify-center">
+                      <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M6.5 5.5v9l8-4.5-8-4.5z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <img
+                  src={media.url}
+                  alt="Post attachment"
+                  className="w-full max-h-80 object-cover"
+                  loading="lazy"
+                />
+              )}
+            </button>
           </div>
         )}
 
@@ -353,6 +396,42 @@ function PostCard({ post, showActions = false, onDelete, onUpdate }) {
           </button>
         </div>
       </Modal>
+
+      {/* Media Viewer */}
+      {showMediaViewer && media?.url && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowMediaViewer(false)}
+          />
+          <div className="relative w-full max-w-4xl">
+            <button
+              type="button"
+              onClick={() => setShowMediaViewer(false)}
+              className="absolute -top-12 right-0 text-gray-200 hover:text-white px-3 py-2 rounded-lg bg-black/40 hover:bg-black/60 transition-colors"
+              aria-label="Close media viewer"
+            >
+              Close
+            </button>
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-2xl">
+              {media.mimeType?.startsWith('video/') ? (
+                <video
+                  src={media.url}
+                  controls
+                  autoPlay
+                  className="w-full max-h-[80vh] bg-black"
+                />
+              ) : (
+                <img
+                  src={media.url}
+                  alt="Post attachment"
+                  className="w-full max-h-[80vh] object-contain bg-black"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

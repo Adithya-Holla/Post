@@ -18,9 +18,9 @@ function AvatarUpload() {
     if (!file) return;
 
     // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
     if (!allowedTypes.includes(file.type)) {
-      setError('Invalid file type. Only JPG, PNG, and WEBP are allowed.');
+      setError('Invalid file type. Supported: JPG, PNG, WEBP, HEIC, HEIF.');
       return;
     }
 
@@ -99,9 +99,9 @@ function AvatarUpload() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/jpeg,image/jpg,image/png,image/webp"
+                accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif"
                 onChange={handleFileSelect}
-                className="hidden"
+                className="sr-only"
                 id="avatar-upload"
               />
               <label
