@@ -174,13 +174,8 @@ export const getCurrentUser = async (req, res) => {
  */
 export const logout = async (req, res) => {
   try {
-    // Clear cookie
-    res.clearCookie('token', {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'strict',
-      path: '/'
-    });
+    // Clear cookie with same options used to set it
+    res.clearCookie('token', cookieOptions);
 
     res.status(200).json({ 
       message: 'Logout successful' 

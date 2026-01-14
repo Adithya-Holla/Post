@@ -32,6 +32,6 @@ export const verifyToken = (token) => {
 export const cookieOptions = {
   httpOnly: true,
   secure: config.cookieSecure,
-  sameSite: 'strict',
+  sameSite: config.cookieSameSite,
   maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
 };

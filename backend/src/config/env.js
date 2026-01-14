@@ -16,6 +16,7 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-in-production',
   jwtExpire: process.env.JWT_EXPIRE || '7d',
   cookieSecure: process.env.COOKIE_SECURE === 'true',
+  cookieSameSite: process.env.COOKIE_SAME_SITE || 'strict',
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173'
 };
 
