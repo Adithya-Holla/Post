@@ -13,6 +13,7 @@ import { config } from './config/env.js';
 import authRoutes from './routes/auth.routes.js';
 import postRoutes from './routes/post.routes.js';
 import userRoutes from './routes/user.routes.js';
+import mediaRoutes from './routes/media.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -59,6 +60,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/media', mediaRoutes);
 
 // Error handling middleware for multer errors
 app.use((err, req, res, next) => {

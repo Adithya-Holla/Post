@@ -67,6 +67,10 @@ const postSchema = new mongoose.Schema({
       type: String,
       default: null
     },
+    gridfsId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null
+    },
     mimeType: {
       type: String,
       default: null

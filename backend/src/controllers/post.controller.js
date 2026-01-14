@@ -5,6 +5,9 @@
 
 import Post from '../models/Post.js';
 import { getIO } from '../config/socket.js';
+import mongoose from 'mongoose';
+import fs from 'fs';
+import { GridFSBucket } from 'mongodb';
 
 /**
  * Get all posts (public feed)
@@ -69,14 +72,50 @@ export const createPost = async (req, res) => {
       });
     }
 
-    const media = req.file
-      ? {
-          url: `${req.protocol}://${req.get('host')}/uploads/posts/${req.file.filename}`,
-          mimeType: req.file.mimetype,
+    let media;
+    if (req.file) {
+      const db = mongoose.connection?.db;
+      if (!db) {
+        return res.status(500).json({ message: 'Database not connected' });
+      }
+
+      const bucket = new GridFSBucket(db, { bucketName: 'postMedia' });
+
+      const filePath = req.file.path;
+      const uploadStream = bucket.openUploadStream(req.file.originalname || req.file.filename, {
+        contentType: req.file.mimetype,
+        metadata: {
           originalName: req.file.originalname,
-          size: req.file.size
+          uploadedBy: req.user.id
         }
-      : undefined;
+      });
+
+      try {
+        await new Promise((resolve, reject) => {
+          fs.createReadStream(filePath)
+            .on('error', reject)
+            .pipe(uploadStream)
+            .on('error', reject)
+            .on('finish', resolve);
+        });
+      } finally {
+        // Clean up temp file saved by multer
+        try {
+          fs.unlinkSync(filePath);
+        } catch {
+          // ignore
+        }
+      }
+
+      const mediaId = uploadStream.id;
+      media = {
+        url: `${req.protocol}://${req.get('host')}/api/media/${mediaId.toString()}`,
+        gridfsId: mediaId,
+        mimeType: req.file.mimetype,
+        originalName: req.file.originalname,
+        size: req.file.size
+      };
+    }
 
     // Create post
     const post = await Post.create({
@@ -219,6 +258,20 @@ export const deletePost = async (req, res) => {
 
     // Delete post
     await post.deleteOne();
+
+    // Cleanup GridFS media if present
+    try {
+      const gridfsId = post.media?.gridfsId;
+      if (gridfsId) {
+        const db = mongoose.connection?.db;
+        if (db) {
+          const bucket = new GridFSBucket(db, { bucketName: 'postMedia' });
+          await bucket.delete(gridfsId);
+        }
+      }
+    } catch (cleanupError) {
+      console.error('Media cleanup error:', cleanupError);
+    }
 
     res.status(200).json({ 
       message: 'Post deleted successfully' 
