@@ -12,7 +12,7 @@ import { getSocket } from '../../config/socket';
 
 function PostCard({ post, showActions = false, onDelete, onUpdate }) {
   const { user, isAuthenticated } = useAuth();
-  const { id, author, createdAt } = post;
+  const { id, author, createdAt, updatedAt } = post;
   
   const [content, setContent] = useState(post.content);
   const [likesCount, setLikesCount] = useState(post.likesCount);
@@ -25,10 +25,12 @@ function PostCard({ post, showActions = false, onDelete, onUpdate }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(updatedAt);
 
   const isOwner = user && author.id === user.id;
   const maxLength = 280;
   const remainingChars = maxLength - editContent.length;
+  const wasEdited = lastUpdated && createdAt !== lastUpdated;
 
   // Listen for socket events for real-time updates
   useEffect(() => {
@@ -96,6 +98,7 @@ function PostCard({ post, showActions = false, onDelete, onUpdate }) {
     try {
       const response = await axios.put(`/posts/${id}`, { content: editContent });
       setContent(editContent);
+      setLastUpdated(response.data.post.updatedAt);
       setIsEditing(false);
       if (onUpdate) {
         onUpdate(response.data.post);
@@ -144,7 +147,8 @@ function PostCard({ post, showActions = false, onDelete, onUpdate }) {
                   {author.username}
                 </h3>
                 <span className="text-gray-500 dark:text-gray-400 text-sm flex-shrink-0">
-                  {formatDistanceToNow(new Date(createdAt), { addSuffix: true })}
+                  {formatDistanceToNow(new Date(wasEdited ? lastUpdated : createdAt), { addSuffix: true })}
+                  {wasEdited && <span className="ml-1">(edited)</span>}
                 </span>
               </div>
               {showActions && isOwner && !isEditing && (
