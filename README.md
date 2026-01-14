@@ -10,7 +10,6 @@ The backend exposes a REST API (cookie-based JWT auth) and emits basic Socket.IO
 - Create, edit, and delete posts (280 character limit)
 - Like/unlike posts
 - Comment on posts and fetch comments per post
-- Profile avatar upload (served from `/uploads`)
 - Profile avatar upload (stored in MongoDB)
 - Socket.IO events for interaction updates (like/comment)
 
@@ -118,6 +117,10 @@ Minimum backend environment variables:
 - `JWT_SECRET`
 - `CLIENT_URL` (set to the deployed frontend URL)
 - `COOKIE_SECURE=true` in production
+
+Notes:
+
+- Avatars are stored in MongoDB and returned as a `data:` URL, so deployment does not depend on the server filesystem.
 
 ## License
 
